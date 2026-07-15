@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soru Kutusu | Anasayfa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    if (localStorage.getItem('soru-kutusu-theme') === 'dark' || (!localStorage.getItem('soru-kutusu-theme') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+  </script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 transition-colors dark:bg-slate-950 dark:text-slate-100">
+  <section id="auth-section" class="hidden">
+    <div class="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <div class="mb-7 text-center">
+        <div class="mb-2 text-4xl">📚</div>
+        <h1 class="text-3xl font-black text-indigo-600 dark:text-indigo-400">Soru Kutusu</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">TYT ve AYT çalışma takip alanın</p>
+      </div>
+      <form id="login-form" class="space-y-3">
+        <h2 class="text-xl font-bold">Giriş yap</h2>
+        <input id="login-email" type="email" required placeholder="E-posta" class="field" />
+        <input id="login-password" type="password" required placeholder="Şifre" class="field" />
+        <button class="primary-btn w-full" type="submit">Giriş yap</button>
+        <p class="pt-1 text-center text-sm text-slate-500">Hesabın yok mu? <button type="button" data-auth="register" class="font-bold text-indigo-600 dark:text-indigo-400">Kayıt ol</button></p>
+      </form>
+      <form id="register-form" class="hidden space-y-3">
+        <h2 class="text-xl font-bold">Kayıt ol</h2>
+        <input id="register-name" required maxlength="30" placeholder="Kullanıcı adı" class="field" />
+        <input id="register-email" type="email" required placeholder="E-posta" class="field" />
+        <input id="register-password" type="password" required minlength="6" placeholder="Şifre (en az 6 karakter)" class="field" />
+        <button class="w-full rounded-xl bg-emerald-500 px-4 py-3 font-bold text-white transition hover:bg-emerald-600" type="submit">Hesap oluştur</button>
+        <p class="pt-1 text-center text-sm text-slate-500">Hesabın var mı? <button type="button" data-auth="login" class="font-bold text-indigo-600 dark:text-indigo-400">Giriş yap</button></p>
+      </form>
+      <p id="auth-message" class="mt-4 hidden rounded-lg p-3 text-sm"></p>
+    </div>
+  </section>
+
+  <div id="app" class="hidden min-h-screen flex-col">
+    <header class="sticky top-0 z-30 border-b border-indigo-500/30 bg-indigo-600 text-white shadow-lg dark:bg-indigo-950">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <button data-page="dashboard" class="flex items-center gap-2 text-left"><span class="text-2xl">📚</span><span class="font-extrabold">Soru Kutusu</span></button>
+        <div class="hidden items-center gap-4 text-xs sm:flex">
+          <span title="Bugün çözülen soru">✍️ <b id="header-questions">0</b> soru</span>
+          <span title="Toplam odaklanma süresi">⏱️ <b id="header-time">0 dk</b></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button data-page="leaderboard" class="icon-btn" title="Sıralama">🏆</button>
+          <button data-page="settings" class="icon-btn" title="Ayarlar">⚙️</button>
+          <button id="logout-button" class="rounded-lg bg-white/15 px-3 py-2 text-xs font-bold hover:bg-white/25">Çıkış</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">
+      <section id="dashboard-page" class="space-y-6">
+        <div class="rounded-3xl bg-gradient-to-r from-indigo-600 to-violet-600 p-6 text-white shadow-lg">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div><p class="text-indigo-100">Hoş geldin,</p><h2 class="text-2xl font-black"><span id="display-name">Öğrenci</span> 👋</h2><p class="mt-1 text-sm text-indigo-100">Günlük ilerlemeni takip et, çalışmanı buluta kaydet.</p></div>
+            <div class="flex gap-2"><button data-page="add-question" class="rounded-xl bg-white px-4 py-3 text-sm font-bold text-indigo-700 shadow hover:bg-indigo-50">＋ Soru ekle</button><button id="sync-button" class="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-emerald-950 shadow hover:bg-emerald-300">☁️ Kaydet</button></div>
+          </div>
+          <p id="sync-status" class="mt-4 text-xs text-indigo-100">Buluta gönderilecek yeni soru yok.</p>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-3">
+          <section class="card lg:col-span-2">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h3 class="section-title">📝 Çalışma günlüğüm</h3><p class="hint">Örnek: “Matematik 30 soru, Türkçe 20 soru, 1 saat 15 dk çalıştım.”</p></div><button id="clear-diary" class="danger-link">Temizle</button></div>
+            <div id="quick-chips" class="mb-3 flex flex-wrap gap-2"></div>
+            <textarea id="diary" class="field h-36 resize-y" placeholder="Bugünkü çalışmanı yaz..."></textarea>
+            <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700"><table class="w-full text-left text-sm"><thead class="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-400"><tr><th class="px-4 py-3">Ders</th><th class="px-4 py-3 text-right">Soru</th></tr></thead><tbody id="diary-table"></tbody></table></div>
+          </section>
+
+          <section class="card flex flex-col">
+            <h3 class="section-title">⏱️ Odak zamanlayıcısı</h3>
+            <div class="mt-3 flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800"><button data-timer-tab="stopwatch" class="timer-tab active">Kronometre</button><button data-timer-tab="pomodoro" class="timer-tab">Pomodoro</button></div>
+            <div id="stopwatch-panel" class="flex flex-1 flex-col justify-center"><p id="stopwatch-display" class="my-7 text-center font-mono text-4xl font-black text-indigo-600 dark:text-indigo-400">00:00:00</p><button id="stopwatch-toggle" class="primary-btn">▶ Başlat</button><button id="stopwatch-save" class="secondary-btn mt-2">Süreyi ekle ve sıfırla</button></div>
+            <div id="pomodoro-panel" class="hidden flex-1"><div class="mt-6 text-center"><span id="pomo-label" class="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-200">Odaklanma · 25 dk</span><p id="pomo-display" class="my-6 font-mono text-4xl font-black text-indigo-600 dark:text-indigo-400">25:00</p></div><div class="grid grid-cols-3 gap-2"><button class="small-btn" data-pomo="25,focus">25 dk</button><button class="small-btn" data-pomo="5,break">5 dk</button><button class="small-btn" data-pomo="15,break">15 dk</button></div><button id="pomo-toggle" class="primary-btn mt-4">▶ Başlat</button><button id="pomo-reset" class="secondary-btn mt-2">Sıfırla</button></div>
+          </section>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-3">
+          <section class="card lg:col-span-1"><h3 class="section-title">🤖 Net hesapla</h3><div class="mt-4 grid gap-3"><select id="net-exam" class="field"><option>TYT</option><option>AYT</option></select><input id="net-label" class="field" placeholder="Deneme adı (opsiyonel)" /><div class="grid grid-cols-2 gap-3"><input id="net-correct" type="number" min="0" class="field" placeholder="Doğru" /><input id="net-wrong" type="number" min="0" class="field" placeholder="Yanlış" /></div><button id="calculate-net" class="primary-btn">Hesapla</button><p id="net-result" class="hidden rounded-xl bg-indigo-50 p-3 text-center font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200"></p><button id="save-net" class="secondary-btn hidden">Grafiğe kaydet</button></div></section>
+          <section class="card lg:col-span-2"><div class="grid gap-6 md:grid-cols-2"><div><div class="mb-2 flex justify-between"><h3 class="font-bold">📈 TYT net gelişimi</h3><button data-clear-nets="TYT" class="danger-link">Sıfırla</button></div><div class="h-60"><canvas id="tyt-chart"></canvas></div></div><div><div class="mb-2 flex justify-between"><h3 class="font-bold">📈 AYT net gelişimi</h3><button data-clear-nets="AYT" class="danger-link">Sıfırla</button></div><div class="h-60"><canvas id="ayt-chart"></canvas></div></div></div></section>
+        </div>
+
+        <section class="card"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="section-title">🗂️ Soru arşivi</h3><p class="hint">Fotoğraflı sorularını cihazında sakla ve dersine göre filtrele.</p></div><button data-page="questions" class="primary-btn">Arşivi aç</button></div></section>
+      </section>
+
+      <section id="questions-page" class="hidden space-y-5"><div class="page-heading"><div><h2>Soru arşivi</h2><p>Sorular yalnızca bu tarayıcıda saklanır.</p></div><button data-page="add-question" class="primary-btn">＋ Soru ekle</button></div><div class="flex flex-wrap gap-2"><select id="filter-exam" class="field w-auto"><option value="">Tüm sınavlar</option><option>TYT</option><option>AYT</option></select><select id="filter-subject" class="field w-auto"><option value="">Tüm dersler</option></select></div><div id="question-list" class="grid gap-5 md:grid-cols-2"></div></section>
+
+      <section id="add-question-page" class="hidden space-y-5"><div class="page-heading"><div><h2>Yeni soru ekle</h2><p>Soru ve çözüm fotoğrafı cihazında saklanır.</p></div><button data-page="questions" class="secondary-btn">← Arşive dön</button></div><form id="question-form" class="card mx-auto max-w-2xl space-y-4"><select id="question-exam" class="field"><option>TYT</option><option>AYT</option></select><select id="question-subject" class="field"></select><input id="question-title" required class="field" placeholder="Soru başlığı / konu" /><label class="block text-sm font-bold">Soru fotoğrafı<input id="question-image" required type="file" accept="image/*" class="mt-1 block w-full text-sm" /></label><label class="block text-sm font-bold">Çözüm fotoğrafı<input id="solution-image" required type="file" accept="image/*" class="mt-1 block w-full text-sm" /></label><button class="primary-btn w-full" type="submit">Kaydet ve arşive ekle</button></form></section>
+
+      <section id="leaderboard-page" class="hidden space-y-5"><div class="page-heading"><div><h2>🏆 Günlük sıralama</h2><p>Bugün buluta kaydedilen çözülen soru sayısı.</p></div><button data-page="dashboard" class="secondary-btn">← Ana sayfa</button></div><div class="card overflow-hidden p-0"><table class="w-full text-left"><thead class="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-800"><tr><th class="px-5 py-4">#</th><th class="px-5 py-4">Öğrenci</th><th class="px-5 py-4 text-right">Soru</th></tr></thead><tbody id="leaderboard-list"></tbody></table></div></section>
+
+      <section id="settings-page" class="hidden space-y-5"><div class="page-heading"><div><h2>Ayarlar</h2><p>Görünümü ve hızlı ekleme şablonlarını düzenle.</p></div><button data-page="dashboard" class="secondary-btn">← Ana sayfa</button></div><div class="grid gap-6 md:grid-cols-2"><section class="card"><h3 class="section-title">🎨 Görünüm</h3><button id="theme-toggle" class="secondary-btn mt-4">Temayı değiştir</button></section><section class="card"><h3 class="section-title">⚡ Hızlı ekleme</h3><p class="hint">Her şablonu “Ders 20 soru” biçiminde, virgülle ayır.</p><textarea id="chips-input" class="field mt-4 h-28"></textarea><button id="save-chips" class="primary-btn mt-3">Şablonları kaydet</button></section></div></section>
+    </main>
+  </div>
+
+  <style>
+    .field { width: 100%; border-radius: .75rem; border: 1px solid rgb(203 213 225); background: rgb(248 250 252); padding: .75rem; color: inherit; outline: none; } .dark .field { border-color: rgb(71 85 105); background: rgb(15 23 42); } .field:focus { border-color: rgb(99 102 241); box-shadow: 0 0 0 3px rgb(99 102 241 / .2); } .card { border: 1px solid rgb(226 232 240); border-radius: 1.25rem; background: white; padding: 1.25rem; box-shadow: 0 4px 12px rgb(15 23 42 / .05); } .dark .card { border-color: rgb(51 65 85); background: rgb(15 23 42); } .primary-btn,.secondary-btn,.small-btn,.icon-btn { border-radius: .75rem; font-weight: 700; transition: .15s; } .primary-btn { background: rgb(79 70 229); color: white; padding: .75rem 1rem; } .primary-btn:hover { background: rgb(67 56 202); } .secondary-btn { background: rgb(226 232 240); color: rgb(30 41 59); padding: .75rem 1rem; } .dark .secondary-btn { background: rgb(51 65 85); color: white; } .small-btn { background: rgb(241 245 249); padding: .55rem; font-size: .75rem; } .dark .small-btn { background: rgb(51 65 85); } .icon-btn { padding: .5rem; } .icon-btn:hover { background: rgb(255 255 255 / .15); } .section-title { font-size: 1.125rem; font-weight: 800; } .hint { margin-top: .25rem; font-size: .8rem; color: rgb(100 116 139); } .dark .hint { color: rgb(148 163 184); } .danger-link { font-size: .75rem; font-weight: 700; color: rgb(225 29 72); } .timer-tab { width: 50%; border-radius: .6rem; padding: .55rem; font-size: .8rem; font-weight: 700; color: rgb(100 116 139); } .timer-tab.active { background: white; color: rgb(79 70 229); box-shadow: 0 1px 3px rgb(15 23 42 / .12); } .dark .timer-tab.active { background: rgb(30 41 59); color: rgb(165 180 252); } .page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; } .page-heading h2 { font-size: 1.5rem; font-weight: 900; } .page-heading p { margin-top: .25rem; font-size: .85rem; color: rgb(100 116 139); }
+  </style>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    const firebaseConfig = { apiKey: 'AIzaSyAkPM0K52M7V5MgUCf5SmSvGlQjP5FJ4wQ', authDomain: 'yks-takip-sistemi-a733e.firebaseapp.com', projectId: 'yks-takip-sistemi-a733e', storageBucket: 'yks-takip-sistemi-a733e.appspot.com', messagingSenderId: '670248896860', appId: '1:670248896860:web:ba920d610ce57b4762d999' };
+    const app = initializeApp(firebaseConfig), auth = getAuth(app), cloud = getFirestore(app);
+    const $ = (selector) => document.querySelector(selector);
+    const subjects = { TYT: ['Matematik', 'Türkçe', 'Sosyal', 'Fen'], AYT: ['Matematik', 'Fizik', 'Kimya', 'Biyoloji'] };
+    const state = { db: null, user: null, cloudData: { dailyQuestions: 0 }, charts: {}, stopwatch: 0, stopwatchId: null, pomo: { left: 1500, total: 1500, mode: 'focus', id: null }, calculatedNet: null };
+    const defaultChips = ['Matematik 10 soru', 'Türkçe 20 soru', 'Geometri 10 soru', 'Fizik 15 soru', 'Kimya 15 soru', 'Biyoloji 15 soru'];
+    const storage = { get: (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }, set: (key, value) => localStorage.setItem(key, JSON.stringify(value)) };
+
+    function showAuthMessage(message, error = true) { const el = $('#auth-message'); el.textContent = message; el.className = `mt-4 rounded-lg p-3 text-sm ${error ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200' : 'bg-emerald-50 text-emerald-700'}`; }
+    function friendlyError(error) { const code = error?.code || ''; if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'E-posta veya şifre hatalı.'; if (code.includes('email-already-in-use')) return 'Bu e-posta zaten kayıtlı.'; if (code.includes('weak-password')) return 'Şifre en az 6 karakter olmalı.'; return 'İşlem tamamlanamadı. İnternet bağlantını ve bilgileri kontrol et.'; }
+    // Günlük sayaç, ilk kodda yazdığı gibi her gün Türkiye saatiyle 04:00'te yenilenir.
+    function dayKey() {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      const value = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+      const start = Date.UTC(Number(value.year), Number(value.month) - 1, Number(value.day));
+      return new Date(start - (Number(value.hour) < 4 ? 86_400_000 : 0)).toISOString().slice(0, 10);
+    }
+    function formatTime(seconds) { const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60; return h ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
+    function totalFocusSeconds() { return Number(localStorage.getItem('sk-focus-seconds') || 0); }
+    function addFocus(seconds) { if (seconds > 0) localStorage.setItem('sk-focus-seconds', String(totalFocusSeconds() + seconds)); updateHeader(); }
+    function updateHeader() { const count = state.cloudData.dailyQuestions || 0; $('#header-questions').textContent = count; const sec = totalFocusSeconds() + state.stopwatch; const min = Math.floor(sec / 60); $('#header-time').textContent = min >= 60 ? `${Math.floor(min / 60)} sa ${min % 60} dk` : `${min} dk`; }
+    function setPage(page) { document.querySelectorAll('main > section').forEach((section) => section.classList.add('hidden')); $(`#${page}-page`).classList.remove('hidden'); if (page === 'questions') loadQuestions(); if (page === 'leaderboard') loadLeaderboard(); if (page === 'dashboard') { renderCharts(); analyzeDiary(); } window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+    function openDatabase() { return new Promise((resolve, reject) => { const req = indexedDB.open('SoruKutusuDB', 1); req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains('questions')) db.createObjectStore('questions', { keyPath: 'id', autoIncrement: true }); if (!db.objectStoreNames.contains('nets')) db.createObjectStore('nets', { keyPath: 'id', autoIncrement: true }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); }
+    function dbRequest(store, mode, operation) { return new Promise((resolve, reject) => { const tx = state.db.transaction(store, mode), request = operation(tx.objectStore(store)); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
+
+    async function ensureCloudProfile(user) { const ref = doc(cloud, 'users', user.uid), snap = await getDoc(ref), name = user.displayName || user.email.split('@')[0]; let data = snap.exists() ? snap.data() : null; if (!data) { data = { username: name, dailyQuestions: 0, dayKey: dayKey() }; await setDoc(ref, data); } else if (data.dayKey !== dayKey()) { await updateDoc(ref, { dailyQuestions: 0, dayKey: dayKey() }); data.dailyQuestions = 0; data.dayKey = dayKey(); } state.cloudData = data; $('#display-name').textContent = data.username || name; updateHeader(); }
+    async function syncQuestions() { if (!state.user) return; const total = analyzeDiary(); const saved = Number(localStorage.getItem(`sk-diary-saved-${dayKey()}`) || 0); const pending = Math.max(0, total - saved); if (!pending) { $('#sync-status').textContent = 'Buluta gönderilecek yeni soru yok.'; return; } $('#sync-button').disabled = true; $('#sync-button').textContent = 'Kaydediliyor…'; try { await updateDoc(doc(cloud, 'users', state.user.uid), { dailyQuestions: increment(pending), dayKey: dayKey() }); state.cloudData.dailyQuestions = (state.cloudData.dailyQuestions || 0) + pending; localStorage.setItem(`sk-diary-saved-${dayKey()}`, String(total)); updateHeader(); $('#sync-status').textContent = `${pending} yeni soru buluta kaydedildi. 🎉`; } catch (error) { $('#sync-status').textContent = 'Bulut kaydı başarısız. Bağlantını kontrol edip tekrar dene.'; } finally { $('#sync-button').disabled = false; $('#sync-button').textContent = '☁️ Kaydet'; } }
+    async function loadLeaderboard() { const body = $('#leaderboard-list'); body.innerHTML = '<tr><td colspan="3" class="px-5 py-6 text-center text-slate-500">Yükleniyor…</td></tr>'; try { const snap = await getDocs(query(collection(cloud, 'users'), orderBy('dailyQuestions', 'desc'), limit(20))); body.innerHTML = ''; let rank = 0; snap.forEach((item) => { rank++; const data = item.data(); const row = document.createElement('tr'); row.className = 'border-t border-slate-100 dark:border-slate-800'; row.innerHTML = `<td class="px-5 py-4 font-bold text-slate-400">${rank}</td><td class="px-5 py-4 font-semibold"></td><td class="px-5 py-4 text-right font-black text-indigo-600 dark:text-indigo-400">${data.dailyQuestions || 0}</td>`; row.children[1].textContent = data.username || 'Öğrenci'; body.append(row); }); if (!rank) body.innerHTML = '<tr><td colspan="3" class="px-5 py-6 text-center text-slate-500">Henüz kayıt yok.</td></tr>'; } catch { body.innerHTML = '<tr><td colspan="3" class="px-5 py-6 text-center text-rose-500">Sıralama yüklenemedi.</td></tr>'; } }
+
+    function chips() { return storage.get('sk-chips', defaultChips); }
+    function renderChips() { $('#quick-chips').innerHTML = ''; chips().forEach((chip) => { const button = document.createElement('button'); button.className = 'rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-200'; button.textContent = `＋ ${chip}`; button.onclick = () => { const diary = $('#diary'); diary.value = `${diary.value.trim()}${diary.value.trim() ? ', ' : ''}${chip}`; analyzeDiary(); diary.focus(); }; $('#quick-chips').append(button); }); }
+    function analyzeDiary() { const text = $('#diary').value; localStorage.setItem('sk-diary', text); const summary = {}; let total = 0; const regex = /([a-zçğıöşü]+)\s*(?:den)?\s*(\d+)\s*soru/gi; let match; while ((match = regex.exec(text))) { const subject = match[1].charAt(0).toLocaleUpperCase('tr-TR') + match[1].slice(1).toLocaleLowerCase('tr-TR'); const amount = Number(match[2]); summary[subject] = (summary[subject] || 0) + amount; total += amount; } const tbody = $('#diary-table'); tbody.innerHTML = ''; const entries = Object.entries(summary); if (!entries.length) tbody.innerHTML = '<tr><td colspan="2" class="px-4 py-5 text-center text-slate-400">Soru sayıları burada görünecek.</td></tr>'; else { entries.forEach(([subject, amount]) => { const row = document.createElement('tr'); row.className = 'border-t border-slate-100 dark:border-slate-800'; row.innerHTML = `<td class="px-4 py-3"></td><td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">${amount}</td>`; row.children[0].textContent = subject; tbody.append(row); }); const row = document.createElement('tr'); row.className = 'border-t-2 border-indigo-100 dark:border-indigo-950 font-black'; row.innerHTML = `<td class="px-4 py-3">Toplam</td><td class="px-4 py-3 text-right text-indigo-600 dark:text-indigo-400">${total}</td>`; tbody.append(row); } const saved = Number(localStorage.getItem(`sk-diary-saved-${dayKey()}`) || 0), pending = Math.max(0, total - saved); $('#sync-status').textContent = pending ? `${pending} soru buluta kaydedilmeyi bekliyor.` : 'Buluta gönderilecek yeni soru yok.'; return total; }
+
+    function populateSubjects(target, exam) { target.innerHTML = ''; subjects[exam].forEach((subject) => { const opt = document.createElement('option'); opt.value = subject; opt.textContent = subject; target.append(opt); }); }
+    function fileAsDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
+    async function saveQuestion(event) { event.preventDefault(); const image = $('#question-image').files[0], solution = $('#solution-image').files[0]; if (!image || !solution) return; const item = { exam: $('#question-exam').value, subject: $('#question-subject').value, title: $('#question-title').value.trim(), image: await fileAsDataUrl(image), solution: await fileAsDataUrl(solution), createdAt: Date.now() }; await dbRequest('questions', 'readwrite', (store) => store.add(item)); event.target.reset(); populateSubjects($('#question-subject'), $('#question-exam').value); setPage('questions'); }
+    async function loadQuestions() { const list = $('#question-list'), records = await dbRequest('questions', 'readonly', (store) => store.getAll()), exam = $('#filter-exam').value, subject = $('#filter-subject').value; list.innerHTML = ''; const filtered = records.filter((item) => (!exam || item.exam === exam) && (!subject || item.subject === subject)).sort((a,b) => b.createdAt - a.createdAt); if (!filtered.length) { list.innerHTML = '<p class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">Henüz bu filtrede soru yok.</p>'; return; } filtered.forEach((item) => { const card = document.createElement('article'); card.className = 'card overflow-hidden p-0'; const image = document.createElement('img'); image.src = item.image; image.alt = item.title; image.className = 'h-48 w-full bg-slate-100 object-contain dark:bg-slate-800'; const content = document.createElement('div'); content.className = 'p-4'; content.innerHTML = `<p class="text-xs font-bold text-indigo-600 dark:text-indigo-400">${item.exam} · ${item.subject}</p><h3 class="mt-1 font-bold"></h3><div class="mt-4 flex gap-2"><button class="secondary-btn view-solution">Çözümü gör</button><button class="danger-link delete-question">Sil</button></div>`; content.querySelector('h3').textContent = item.title; content.querySelector('.view-solution').onclick = () => { image.src = image.src === item.image ? item.solution : item.image; image.alt = image.src === item.solution ? `${item.title} çözümü` : item.title; content.querySelector('.view-solution').textContent = image.src === item.solution ? 'Soruyu gör' : 'Çözümü gör'; }; content.querySelector('.delete-question').onclick = async () => { if (confirm('Bu soru arşivden silinsin mi?')) { await dbRequest('questions', 'readwrite', (store) => store.delete(item.id)); loadQuestions(); } }; card.append(image, content); list.append(card); }); }
+
+    async function nets() { return dbRequest('nets', 'readonly', (store) => store.getAll()); }
+    async function renderCharts() { const records = await nets(); ['TYT', 'AYT'].forEach((exam) => { const data = records.filter((item) => item.exam === exam).sort((a,b) => a.createdAt - b.createdAt); const canvas = $(`#${exam.toLowerCase()}-chart`); state.charts[exam]?.destroy(); state.charts[exam] = new Chart(canvas, { type: 'line', data: { labels: data.map((item) => item.label), datasets: [{ data: data.map((item) => item.value), borderColor: exam === 'TYT' ? '#4f46e5' : '#db2777', backgroundColor: exam === 'TYT' ? '#4f46e533' : '#db277733', fill: true, tension: .3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } }); }); }
+    function calculateNet() { const correct = Number($('#net-correct').value) || 0, wrong = Number($('#net-wrong').value) || 0; state.calculatedNet = Math.max(0, correct - wrong / 4); $('#net-result').textContent = `Netin: ${state.calculatedNet.toFixed(2).replace('.', ',')}`; $('#net-result').classList.remove('hidden'); $('#save-net').classList.remove('hidden'); }
+    async function saveNet() { if (state.calculatedNet === null) return; const exam = $('#net-exam').value, label = $('#net-label').value.trim() || new Date().toLocaleDateString('tr-TR'); await dbRequest('nets', 'readwrite', (store) => store.add({ exam, label, value: state.calculatedNet, createdAt: Date.now() })); $('#net-label').value = ''; $('#net-correct').value = ''; $('#net-wrong').value = ''; $('#net-result').classList.add('hidden'); $('#save-net').classList.add('hidden'); state.calculatedNet = null; renderCharts(); }
+    async function clearNets(exam) { if (!confirm(`${exam} net grafiği silinsin mi?`)) return; const records = await nets(); await Promise.all(records.filter((item) => item.exam === exam).map((item) => dbRequest('nets', 'readwrite', (store) => store.delete(item.id)))); renderCharts(); }
+
+    function updateStopwatch() { $('#stopwatch-display').textContent = formatTime(state.stopwatch); updateHeader(); }
+    function toggleStopwatch() { if (state.stopwatchId) { clearInterval(state.stopwatchId); state.stopwatchId = null; $('#stopwatch-toggle').textContent = '▶ Devam et'; } else { state.stopwatchId = setInterval(() => { state.stopwatch++; updateStopwatch(); }, 1000); $('#stopwatch-toggle').textContent = '⏸ Duraklat'; } }
+    function resetStopwatch() { if (state.stopwatchId) toggleStopwatch(); addFocus(state.stopwatch); state.stopwatch = 0; updateStopwatch(); $('#stopwatch-toggle').textContent = '▶ Başlat'; }
+    function updatePomo() { $('#pomo-display').textContent = formatTime(state.pomo.left); }
+    function setPomo(minutes, mode) { if (state.pomo.id) { clearInterval(state.pomo.id); state.pomo.id = null; } state.pomo = { left: minutes * 60, total: minutes * 60, mode, id: null }; $('#pomo-label').textContent = `${mode === 'focus' ? 'Odaklanma' : 'Mola'} · ${minutes} dk`; $('#pomo-toggle').textContent = '▶ Başlat'; updatePomo(); }
+    function togglePomo() { if (state.pomo.id) { clearInterval(state.pomo.id); state.pomo.id = null; $('#pomo-toggle').textContent = '▶ Devam et'; return; } state.pomo.id = setInterval(() => { state.pomo.left--; updatePomo(); if (state.pomo.left <= 0) { clearInterval(state.pomo.id); state.pomo.id = null; if (state.pomo.mode === 'focus') addFocus(state.pomo.total); alert(state.pomo.mode === 'focus' ? 'Odaklanma tamamlandı! 🎉' : 'Mola tamamlandı!'); setPomo(state.pomo.mode === 'focus' ? 5 : 25, state.pomo.mode === 'focus' ? 'break' : 'focus'); } }, 1000); $('#pomo-toggle').textContent = '⏸ Duraklat'; }
+    function switchTimer(tab) { document.querySelectorAll('.timer-tab').forEach((button) => button.classList.toggle('active', button.dataset.timerTab === tab)); $('#stopwatch-panel').classList.toggle('hidden', tab !== 'stopwatch'); $('#pomodoro-panel').classList.toggle('hidden', tab !== 'pomodoro'); }
+    function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('soru-kutusu-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+
+    document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => setPage(button.dataset.page)));
+    document.querySelectorAll('[data-auth]').forEach((button) => button.addEventListener('click', () => { $('#login-form').classList.toggle('hidden', button.dataset.auth !== 'login'); $('#register-form').classList.toggle('hidden', button.dataset.auth !== 'register'); $('#auth-message').classList.add('hidden'); }));
+    $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); try { await signInWithEmailAndPassword(auth, $('#login-email').value.trim(), $('#login-password').value); } catch (error) { showAuthMessage(friendlyError(error)); } });
+    $('#register-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const name = $('#register-name').value.trim(); const result = await createUserWithEmailAndPassword(auth, $('#register-email').value.trim(), $('#register-password').value); await updateProfile(result.user, { displayName: name }); await setDoc(doc(cloud, 'users', result.user.uid), { username: name, dailyQuestions: 0, dayKey: dayKey() }); } catch (error) { showAuthMessage(friendlyError(error)); } });
+    $('#logout-button').onclick = () => signOut(auth); $('#sync-button').onclick = syncQuestions; $('#diary').addEventListener('input', analyzeDiary); $('#clear-diary').onclick = () => { if (confirm('Günlük metni temizlensin mi?')) { $('#diary').value = ''; analyzeDiary(); } }; $('#calculate-net').onclick = calculateNet; $('#save-net').onclick = saveNet; document.querySelectorAll('[data-clear-nets]').forEach((button) => button.onclick = () => clearNets(button.dataset.clearNets)); $('#question-exam').onchange = () => populateSubjects($('#question-subject'), $('#question-exam').value); $('#filter-exam').onchange = () => { populateSubjects($('#filter-subject'), $('#filter-exam').value || 'TYT'); if (!$('#filter-exam').value) $('#filter-subject').innerHTML = '<option value="">Tüm dersler</option>'; loadQuestions(); }; $('#filter-subject').onchange = loadQuestions; $('#question-form').addEventListener('submit', saveQuestion); $('#stopwatch-toggle').onclick = toggleStopwatch; $('#stopwatch-save').onclick = resetStopwatch; $('#pomo-toggle').onclick = togglePomo; $('#pomo-reset').onclick = () => setPomo(state.pomo.mode === 'focus' ? 25 : 5, state.pomo.mode); document.querySelectorAll('[data-pomo]').forEach((button) => button.onclick = () => { const [minutes, mode] = button.dataset.pomo.split(','); setPomo(Number(minutes), mode); }); document.querySelectorAll('[data-timer-tab]').forEach((button) => button.onclick = () => switchTimer(button.dataset.timerTab)); $('#theme-toggle').onclick = toggleTheme; $('#save-chips').onclick = () => { const value = $('#chips-input').value.split(',').map((item) => item.trim()).filter(Boolean); storage.set('sk-chips', value.length ? value : defaultChips); renderChips(); };
+
+    const storedDiaryDay = localStorage.getItem('sk-diary-day');
+    if (storedDiaryDay && storedDiaryDay !== dayKey()) localStorage.removeItem('sk-diary');
+    localStorage.setItem('sk-diary-day', dayKey());
+    state.db = await openDatabase(); $('#diary').value = localStorage.getItem('sk-diary') || ''; $('#chips-input').value = chips().join(', '); populateSubjects($('#question-subject'), 'TYT'); renderChips(); analyzeDiary(); updateStopwatch(); updatePomo(); renderCharts();
+    onAuthStateChanged(auth, async (user) => { if (!user) { window.location.replace('./index.html'); return; } state.user = user; try { await ensureCloudProfile(user); $('#auth-section').classList.add('hidden'); $('#app').classList.remove('hidden'); $('#app').classList.add('flex'); setPage('dashboard'); } catch { alert('Profil yüklenemedi. Lütfen yeniden giriş yap.'); await signOut(auth); } });
+  </script>
+</body>
+</html>
